@@ -4,6 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import HTTPException
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.models import DeleteUserResponse
@@ -13,6 +14,7 @@ from api.models import UpdatedUserResponse
 from api.models import UserCreate
 from db.dals import UserDAL
 from db.session import get_db
+from hashing import Hasher
 
 user_router = APIRouter()
 
@@ -25,6 +27,7 @@ async def _create_new_user(body: UserCreate, db) -> ShowUser:
                 name=body.name,
                 surname=body.surname,
                 email=body.email,
+                hashed_password = Hasher.get_password_hash(body.password)
             )
             return ShowUser(
                 user_id=user.user_id,
