@@ -28,6 +28,7 @@ class UserCreate(BaseModel):
     name: str
     surname: str
     email: EmailStr
+    password: str
 
     @validator("surname")
     def validate_surname(cls, value):
@@ -74,3 +75,8 @@ class UpdatedUserRequest(BaseModel):
                 status_code=422, detail="Surname should contain only letters"
             )
         return value
+
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
