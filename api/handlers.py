@@ -4,10 +4,12 @@ from uuid import UUID
 from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import HTTPException
-
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from api.models import AddTaskRequest
+from api.models import AddTaskResponse
 from api.models import DeleteUserResponse
+from api.models import RemoveTaskResponse
 from api.models import ShowUser
 from api.models import UpdatedUserRequest
 from api.models import UpdatedUserResponse
@@ -27,7 +29,7 @@ async def _create_new_user(body: UserCreate, db) -> ShowUser:
                 name=body.name,
                 surname=body.surname,
                 email=body.email,
-                hashed_password = Hasher.get_password_hash(body.password)
+                hashed_password=Hasher.get_password_hash(body.password),
             )
             return ShowUser(
                 user_id=user.user_id,
@@ -46,6 +48,24 @@ async def _delete_user(user_id, db) -> Union[UUID, None]:
                 user_id=user_id,
             )
             return deleted_user_id
+
+
+async def _add_task(user_id: UUID, task: str, db: AsyncSession):
+    async with db as session:
+        async with session.begin():
+            user_dal = UserDAL(session)
+            added_user_id = await user_dal.add_task_to_user(user_id=user_id, task=task)
+            return added_user_id
+
+
+async def _remove_task(user_id: UUID, task: str, db: AsyncSession):
+    async with db as session:
+        async with session.begin():
+            user_dal = UserDAL(session)
+            removedtask_user_id = await user_dal.remove_task_from_user(
+                user_id=user_id, task=task
+            )
+            return removedtask_user_id
 
 
 async def _get_user_by_id(user_id, db) -> Union[ShowUser, None]:
@@ -124,3 +144,35 @@ async def update_user_by_id(
         updated_user_params=updated_user_params, db=db, user_id=user_id
     )
     return UpdatedUserResponse(updated_user_id=updated_user_id)
+
+
+@user_router.post("/{user_id}/add_task", response_model=AddTaskResponse)
+async def add_task_to_user(
+    user_id: UUID, task_request: AddTaskRequest, db: AsyncSession = Depends(get_db)
+) -> AddTaskResponse:
+    user = await _get_user_by_id(user_id, db)
+    if user is None:
+        raise HTTPException(
+            status_code=404, detail=f"User with id {user_id} is not found!"
+        )
+    added_user_id = await _add_task(user_id=user_id, task=task_request.task, db=db)
+    return AddTaskResponse(task=task_request.task)
+
+
+@user_router.post("/{user_id}/remove_task", response_model=RemoveTaskResponse)
+async def remove_task_from_user(
+    user_id: UUID, task_request: RemoveTaskResponse, db: AsyncSession = Depends(get_db)
+) -> RemoveTaskResponse:
+    user = await _get_user_by_id(user_id, db)
+    if user is None:
+        raise HTTPException(
+            status_code=404, detail=f"User with id {user_id} is not found!"
+        )
+    removed_task_id = await _remove_task(user_id=user_id, task=task_request.task, db=db)
+    if removed_task_id is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Task '{task_request.task}' not found for user with id {user_id}",
+        )
+
+    return RemoveTaskResponse(task=task_request.task)
