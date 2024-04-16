@@ -1,5 +1,6 @@
 import re
 import uuid
+from typing import List
 from typing import Optional
 
 from fastapi import HTTPException
@@ -22,6 +23,8 @@ class ShowUser(TunedModel):
     surname: str
     email: EmailStr
     is_active: bool
+    сompleted_tasks: Optional[List[str]]
+    pending_tasks: Optional[List[str]]
 
 
 class UserCreate(BaseModel):
@@ -53,6 +56,25 @@ class DeleteUserResponse(BaseModel):
 
 class UpdatedUserResponse(BaseModel):
     updated_user_id: uuid.UUID
+
+
+class AddTaskResponse(BaseModel):
+    task: str
+
+
+class RemoveTaskResponse(BaseModel):
+    task: str
+
+
+class AddTaskRequest(BaseModel):
+    task: str
+
+    @validator("task")
+    def validate_task(cls, value):
+        if not value:
+            raise HTTPException(status_code=422, detail="Task should not be empty")
+        # Добавьте любые другие проверки, которые вам нужны для задачи
+        return value
 
 
 class UpdatedUserRequest(BaseModel):
