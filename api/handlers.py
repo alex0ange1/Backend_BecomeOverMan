@@ -8,9 +8,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.models import AddTaskRequest
 from api.models import AddTaskResponse
+from api.models import CompleteTaskResponse
 from api.models import DeleteUserResponse
 from api.models import RemoveTaskResponse
 from api.models import ShowUser
+from api.models import UncompleteTaskResponse
 from api.models import UpdatedUserRequest
 from api.models import UpdatedUserResponse
 from api.models import UserCreate
@@ -26,16 +28,12 @@ async def _create_new_user(body: UserCreate, db) -> ShowUser:
         async with session.begin():
             user_dal = UserDAL(session)
             user = await user_dal.create_user(
-                name=body.name,
-                surname=body.surname,
-                email=body.email,
+                username=body.username,
                 hashed_password=Hasher.get_password_hash(body.password),
             )
             return ShowUser(
                 user_id=user.user_id,
-                name=user.name,
-                surname=user.surname,
-                email=user.email,
+                username=user.username,
                 is_active=user.is_active,
             )
 
@@ -58,6 +56,24 @@ async def _add_task(user_id: UUID, task: str, db: AsyncSession):
             return added_user_id
 
 
+async def _complete_task(user_id: UUID, task: str, db: AsyncSession):
+    async with db as session:
+        async with session.begin():
+            user_dal = UserDAL(session)
+            completed_user_id = await user_dal.complete_task(user_id=user_id, task=task)
+            return completed_user_id
+
+
+async def _uncomplete_task(user_id: UUID, task: str, db: AsyncSession):
+    async with db as session:
+        async with session.begin():
+            user_dal = UserDAL(session)
+            uncompleted_user_id = await user_dal.uncomplete_task(
+                user_id=user_id, task=task
+            )
+            return uncompleted_user_id
+
+
 async def _remove_task(user_id: UUID, task: str, db: AsyncSession):
     async with db as session:
         async with session.begin():
@@ -78,9 +94,7 @@ async def _get_user_by_id(user_id, db) -> Union[ShowUser, None]:
             if user is not None:
                 return ShowUser(
                     user_id=user.user_id,
-                    name=user.name,
-                    surname=user.surname,
-                    email=user.email,
+                    username=user.username,
                     is_active=user.is_active,
                 )
 
@@ -155,7 +169,6 @@ async def add_task_to_user(
         raise HTTPException(
             status_code=404, detail=f"User with id {user_id} is not found!"
         )
-    added_user_id = await _add_task(user_id=user_id, task=task_request.task, db=db)
     return AddTaskResponse(task=task_request.task)
 
 
@@ -176,3 +189,51 @@ async def remove_task_from_user(
         )
 
     return RemoveTaskResponse(task=task_request.task)
+
+
+@user_router.post("/{user_id}/complete_task", response_model=CompleteTaskResponse)
+async def complete_task(
+    user_id: UUID,
+    task_request: CompleteTaskResponse,
+    db: AsyncSession = Depends(get_db),
+) -> CompleteTaskResponse:
+    user = await _get_user_by_id(user_id, db)
+    if user is None:
+        raise HTTPException(
+            status_code=404, detail=f"User with id {user_id} is not found!"
+        )
+
+    completed_task_id = await _complete_task(
+        user_id=user_id, task=task_request.task, db=db
+    )
+    if completed_task_id is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Task '{task_request.task}' not found for user with id {user_id}",
+        )
+
+    return CompleteTaskResponse(task=task_request.task)
+
+
+@user_router.post("/{user_id}/uncomplete_task", response_model=UncompleteTaskResponse)
+async def uncomplete_task(
+    user_id: UUID,
+    task_request: UncompleteTaskResponse,
+    db: AsyncSession = Depends(get_db),
+) -> UncompleteTaskResponse:
+    user = await _get_user_by_id(user_id, db)
+    if user is None:
+        raise HTTPException(
+            status_code=404, detail=f"User with id {user_id} is not found!"
+        )
+
+    uncompleted_task_id = await _uncomplete_task(
+        user_id=user_id, task=task_request.task, db=db
+    )
+    if uncompleted_task_id is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Task '{task_request.task}' not found for user with id {user_id}",
+        )
+
+    return UncompleteTaskResponse(task=task_request.task)
