@@ -21,17 +21,17 @@ from security import create_access_token
 login_router = APIRouter()
 
 
-async def _get_user_by_email_for_auth(email: str, db: AsyncSession):
+async def _get_user_by_username_for_auth(username: str, db: AsyncSession):
     async with db as session:
         async with session.begin():
             user_dal = UserDAL(session)
-            return await user_dal.get_user_by_email(
-                email=email,
+            return await user_dal.get_user_by_username(
+                username=username,
             )
 
 
-async def authenticate_user(email: str, password: str, db: AsyncSession):
-    user = await _get_user_by_email_for_auth(email=email, db=db)
+async def authenticate_user(username: str, password: str, db: AsyncSession):
+    user = await _get_user_by_username_for_auth(username=username, db=db)
     if user is None:
         return
     if not Hasher.verify_password(password, user.hashed_password):
@@ -51,7 +51,7 @@ async def login_for_access_token(
         )
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user.email, "other_custom_data": [1, 2, 3, 4]},
+        data={"sub": user.username, "other_custom_data": [1, 2, 3, 4]},
         expires_delta=access_token_expires,
     )
     return {"access_token": access_token, "token_type": "bearer"}
@@ -71,13 +71,13 @@ async def get_current_user_from_token(
         payload = jwt.decode(
             token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
         )
-        email: str = payload.get("sub")
-        print("username/email extracted is ", email)
-        if email is None:
+        username: str = payload.get("sub")
+        print("username extracted is ", username)
+        if username is None:
             raise credentials_exception
     except JWTError:
         raise credentials_exception
-    user = await _get_user_by_email_for_auth(email=email, db=db)
+    user = await _get_user_by_username_for_auth(username=username, db=db)
     if user is None:
         raise credentials_exception
     return user

@@ -1,4 +1,3 @@
-from typing import Optional
 from typing import Union
 from uuid import UUID
 
@@ -16,12 +15,8 @@ class UserDAL:
     def __init__(self, db_session: AsyncSession):
         self.db_session = db_session
 
-    async def create_user(
-        self, name: str, surname: str, email: str, hashed_password: str
-    ) -> User:
-        new_user = User(
-            name=name, surname=surname, email=email, hashed_password=hashed_password
-        )
+    async def create_user(self, username: str, hashed_password: str) -> User:
+        new_user = User(username=username, hashed_password=hashed_password)
         self.db_session.add(new_user)
         await self.db_session.flush()
         return new_user
@@ -38,8 +33,8 @@ class UserDAL:
         if deleted_user_id_row is not None:
             return deleted_user_id_row[0]
 
-    async def get_user_by_email(self, email: str) -> Union[User, None]:
-        query = select(User).where(User.email == email)
+    async def get_user_by_username(self, username: str) -> Union[User, None]:
+        query = select(User).where(User.username == username)
         result = await self.db_session.execute(query)
         user_row = result.fetchone()
         if user_row is not None:
@@ -97,3 +92,27 @@ class UserDAL:
         result = await self.db_session.execute(query)
         updated_user_id = result.scalar()
         return updated_user_id
+
+    async def complete_task(self, user_id: UUID, task: str):
+        query = (
+            update(User)
+            .where(User.user_id == user_id)
+            .values(pending_tasks=func.array_remove(User.pending_tasks, task))
+            .values(completed_tasks=func.array_append(User.completed_tasks, task))
+            .returning(User.user_id)
+        )
+        result = await self.db_session.execute(query)
+        completed_user_id = result.scalar()
+        return completed_user_id
+
+    async def uncomplete_task(self, user_id: UUID, task: str):
+        query = (
+            update(User)
+            .where(User.user_id == user_id)
+            .values(completed_tasks=func.array_remove(User.completed_tasks, task))
+            .values(pending_tasks=func.array_append(User.pending_tasks, task))
+            .returning(User.user_id)
+        )
+        result = await self.db_session.execute(query)
+        uncompleted_user_id = result.scalar()
+        return uncompleted_user_id
