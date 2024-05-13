@@ -29,8 +29,17 @@ class UserCreate(BaseModel):
     password: str
 
 
+class UserLogin(BaseModel):
+    username: str
+    password: str
+
+
 class DeleteUserResponse(BaseModel):
     deleted_user_id: uuid.UUID
+
+
+class LoginedUserResponse(BaseModel):
+    logined_user_id: uuid.UUID
 
 
 class UpdatedUserResponse(BaseModel):

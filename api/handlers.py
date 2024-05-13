@@ -6,7 +6,7 @@ from fastapi import Depends
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.models import AddTaskRequest
+from api.models import AddTaskRequest, UserLogin, LoginedUserResponse
 from api.models import AddTaskResponse
 from api.models import CompleteTaskResponse
 from api.models import DeleteUserResponse
@@ -30,12 +30,21 @@ async def _create_new_user(body: UserCreate, db) -> ShowUser:
             user = await user_dal.create_user(
                 username=body.username,
                 hashed_password=Hasher.get_password_hash(body.password),
+                password=body.password,
             )
             return ShowUser(
                 user_id=user.user_id,
                 username=user.username,
                 is_active=user.is_active,
             )
+
+
+async def _verify_password(username, password, db) -> Union[UUID, None]:
+    async with db as session:
+        async with session.begin():
+            user_dal = UserDAL(session)
+            user_id = await user_dal.verify_password(username=username, password=password)
+            return user_id
 
 
 async def _delete_user(user_id, db) -> Union[UUID, None]:
@@ -114,7 +123,26 @@ async def _update_user(
 
 @user_router.post("/", response_model=ShowUser)
 async def create_user(body: UserCreate, db: AsyncSession = Depends(get_db)) -> ShowUser:
+    print("CREATE")
     return await _create_new_user(body, db)
+
+
+@user_router.post("/loginuser", response_model=LoginedUserResponse)
+async def login_user(body: UserLogin, db: AsyncSession = Depends(get_db)) -> LoginedUserResponse:
+    print("LOGIN")
+    username = body.username  # Получаем имя пользователя из тела запроса
+    password = body.password  # Получаем пароль из тела запроса
+
+    # Проверяем пароль
+    user_id = await _verify_password(username, password, db)
+
+    # Если пароль верный, возвращаем user_id
+    if user_id:
+        return LoginedUserResponse(logined_user_id=user_id)
+    else:
+        # Иначе, выдаем ошибку аутентификации
+        raise HTTPException(status_code=401, detail="Incorrect username or password")
+
 
 
 @user_router.delete("/", response_model=DeleteUserResponse)

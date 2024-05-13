@@ -7,7 +7,7 @@ from sqlalchemy import func
 from sqlalchemy import select
 from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
-
+from sqlalchemy.exc import IntegrityError
 from db.models import User
 
 
@@ -15,11 +15,16 @@ class UserDAL:
     def __init__(self, db_session: AsyncSession):
         self.db_session = db_session
 
-    async def create_user(self, username: str, hashed_password: str) -> User:
-        new_user = User(username=username, hashed_password=hashed_password)
-        self.db_session.add(new_user)
-        await self.db_session.flush()
-        return new_user
+    async def create_user(self, username: str, hashed_password: str, password: str) -> User:
+        try:
+            new_user = User(username=username, hashed_password=hashed_password, password=password)
+            self.db_session.add(new_user)
+            await self.db_session.flush()
+            return new_user
+        except IntegrityError:
+            # Обработка случая, когда username не уникален
+            # Возможно, здесь нужно вернуть ошибку или выполнить другие действия
+            raise Exception("Username must be unique")  # Пример
 
     async def delete_user(self, user_id: UUID) -> Union[UUID, None]:
         query = (
@@ -116,3 +121,14 @@ class UserDAL:
         result = await self.db_session.execute(query)
         uncompleted_user_id = result.scalar()
         return uncompleted_user_id
+
+    async def verify_password(self, username: str, password: str) -> Union[UUID, None]:
+        query = select(User).where(User.username == username, User.password == password)
+        user = await self.db_session.execute(query)
+        user = user.scalars().first()
+        if user:
+            return user.user_id
+        else:
+            return None
+
+
