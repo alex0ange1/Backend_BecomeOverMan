@@ -20,7 +20,7 @@ class ShowUser(TunedModel):
     user_id = uuid.UUID
     username: str
     is_active: bool
-    сompleted_tasks: Optional[List[str]]
+    completed_tasks: Optional[List[str]]
     pending_tasks: Optional[List[str]]
 
 
@@ -48,6 +48,10 @@ class UpdatedUserResponse(BaseModel):
 
 class AddTaskResponse(BaseModel):
     task: str
+
+
+class ShowTasks(BaseModel):
+    tasks: Optional[List[str]] = None
 
 
 class RemoveTaskResponse(BaseModel):

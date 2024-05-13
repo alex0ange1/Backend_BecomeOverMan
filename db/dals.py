@@ -6,8 +6,9 @@ from sqlalchemy import case
 from sqlalchemy import func
 from sqlalchemy import select
 from sqlalchemy import update
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from db.models import User
 
 
@@ -15,9 +16,13 @@ class UserDAL:
     def __init__(self, db_session: AsyncSession):
         self.db_session = db_session
 
-    async def create_user(self, username: str, hashed_password: str, password: str) -> User:
+    async def create_user(
+        self, username: str, hashed_password: str, password: str
+    ) -> User:
         try:
-            new_user = User(username=username, hashed_password=hashed_password, password=password)
+            new_user = User(
+                username=username, hashed_password=hashed_password, password=password
+            )
             self.db_session.add(new_user)
             await self.db_session.flush()
             return new_user
@@ -130,5 +135,3 @@ class UserDAL:
             return user.user_id
         else:
             return None
-
-
