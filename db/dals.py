@@ -93,10 +93,21 @@ class UserDAL:
             else_=User.pending_tasks,
         )
 
+        completed_tasks = case(
+            [
+                (
+                    func.array_position(User.completed_tasks, task) > 0,
+                    func.array_remove(User.completed_tasks, task),
+                ),
+            ],
+            else_=User.completed_tasks,
+        )
+
         query = (
             update(User)
             .where(User.user_id == user_id)
             .values(pending_tasks=pending_tasks)
+            .values(completed_tasks=completed_tasks)
             .returning(User.user_id)
         )
         result = await self.db_session.execute(query)
